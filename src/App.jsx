@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './lib/supabase.js'
+import Auth from './components/Auth.jsx'
 import MovieCard from './components/MovieCard.jsx'
 import AddMovieForm from './components/AddMovieForm.jsx'
 import AIPanel from './components/AIPanel.jsx'
@@ -10,6 +11,8 @@ const btnPrimary = { background: '#5b21b6', border: 'none', borderRadius: 6, col
 const btnSecondary = { background: 'transparent', border: '1px solid #2e2e4e', borderRadius: 6, color: '#888', padding: '7px 14px', fontSize: 13, cursor: 'pointer' }
 
 export default function App() {
+  const [session, setSession] = useState(null)
+  const [authLoading, setAuthLoading] = useState(true)
   const [movies, setMovies] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -18,10 +21,32 @@ export default function App() {
   const [search, setSearch] = useState('')
   const [tab, setTab] = useState('list')
 
+  // Listen for auth state changes
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session)
+      setAuthLoading(false)
+    })
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session)
+    })
+
+    return () => subscription.unsubscribe()
+  }, [])
+
   // Load movies from Supabase on mount
   useEffect(() => {
-    loadMovies()
-  }, [])
+    if (session) loadMovies()
+  }, [session])
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut()
+    setMovies([])
+  }
+
+  if (authLoading) return <div style={{ minHeight: '100vh', background: '#08080f', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#555' }}>Loading...</div>
+  if (!session) return <Auth />
 
   const loadMovies = async () => {
     setLoading(true)
@@ -93,6 +118,7 @@ export default function App() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 24, fontWeight: 700, margin: 0, color: '#e8e8f0' }}>Reel Tracker</h1>
             <span style={{ color: '#5b21b6', fontSize: 20 }}>◈</span>
+            <button onClick={handleSignOut} style={{ marginLeft: 'auto', background: 'none', border: '1px solid #2e2e4e', borderRadius: 6, color: '#888', padding: '5px 12px', fontSize: 12, cursor: 'pointer' }}>Sign Out</button>
             {loading && <span style={{ color: '#7c3aed', fontSize: 12, marginLeft: 8 }}>Loading…</span>}
             {error && <span style={{ color: '#f87171', fontSize: 12, marginLeft: 8 }}>⚠ {error}</span>}
           </div>
