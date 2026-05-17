@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase.js'
 
-const inputStyle = { background: '#0d0d1a', border: '1px solid #2e2e4e', borderRadius: 6, color: '#e8e8f0', padding: '10px 12px', fontSize: 14, outline: 'none', width: '100%', boxSizing: 'border-box' }
+const inputStyle = { background: '#0d0d1a', border: '2px solid #888', borderRadius: 6, color: '#e8e8f0', padding: '10px 12px', fontSize: 14, outline: 'none', width: '100%', boxSizing: 'border-box' }
 const btnPrimary = { background: '#5b21b6', border: 'none', borderRadius: 6, color: '#fff', padding: '10px 18px', fontSize: 14, cursor: 'pointer', fontWeight: 600, width: '100%' }
 
 export default function Auth() {

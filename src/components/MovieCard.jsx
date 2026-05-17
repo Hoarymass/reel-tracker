@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import StarRating from './StarRating.jsx'
 
 const labelStyle = { color: '#666', fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }
@@ -6,7 +6,10 @@ const inputStyle = { background: '#0d0d1a', border: '1px solid #2e2e4e', borderR
 const selectStyle = { ...inputStyle }
 const btnPrimary = { background: '#5b21b6', border: 'none', borderRadius: 6, color: '#fff', padding: '7px 14px', fontSize: 13, cursor: 'pointer', fontWeight: 600 }
 const btnSecondary = { background: 'transparent', border: '1px solid #2e2e4e', borderRadius: 6, color: '#888', padding: '7px 14px', fontSize: 13, cursor: 'pointer' }
-const PLATFORMS = ['Netflix', 'Hulu', 'Max', 'Disney+', 'Apple TV+', 'Rent/Other']
+const PLATFORMS = ['Netflix', 'Hulu', 'Max', 'Disney+', 'Apple TV+', 'Amazon Prime Video', 'Rent/Other']
+
+// Services the user subscribes to
+const MY_SERVICES = ['Netflix', 'Max', 'Hulu', 'Disney+', 'Apple TV+', 'Amazon Prime Video']
 
 function StatusBadge({ status }) {
   const s = { watched: { bg: '#1a3a2a', color: '#4ade80', label: 'Watched' }, watchlist: { bg: '#1a2a3a', color: '#60a5fa', label: 'Watchlist' }, skipped: { bg: '#2a1a1a', color: '#f87171', label: 'Skipped' } }[status] || { bg: '#1a2a3a', color: '#60a5fa', label: 'Watchlist' }
@@ -27,6 +30,22 @@ export default function MovieCard({ movie, onUpdate, onDelete }) {
   const [streamCheck, setStreamCheck] = useState(null)
   const hasChecked = useRef(false)
 
+  // Auto-check streaming when expanded using the platform data from the database
+  useEffect(() => {
+    if (expanded && !hasChecked.current) {
+      hasChecked.current = true
+      const platform = movie.platform || ''
+      // Check which of my services match the platform field
+      const streaming = MY_SERVICES.filter(s => platform.toLowerCase().includes(s.toLowerCase()))
+      const isRentOnly = platform.toLowerCase().includes('rent') || platform.toLowerCase().includes('mubi') || platform.toLowerCase().includes('other')
+      setStreamCheck({
+        streaming,
+        rent: streaming.length === 0 ? [platform] : [],
+        isRentOnly
+      })
+    }
+  }, [expanded])
+
   const handleSave = async () => {
     setSaving(true)
     await onUpdate(movie.id, draft)
@@ -34,30 +53,10 @@ export default function MovieCard({ movie, onUpdate, onDelete }) {
     setEditing(false)
   }
 
-  const checkStreaming = async () => {
-    if (hasChecked.current) return
-    hasChecked.current = true
-    setStreamCheck('checking')
-    try {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 100,
-          messages: [{ role: 'user', content: `What US streaming service has "${movie.title}" (${movie.year}) with a subscription — Netflix, Hulu, Max, Disney+, Apple TV+? If none say Rent/Other. Reply ONLY with JSON: {"platform":"Netflix"}` }] }),
-      })
-      const data = await res.json()
-      const result = JSON.parse(data.content?.find(b => b.type === 'text')?.text.replace(/```json|```/g, '').trim())
-      const changed = result.platform && result.platform !== movie.platform
-      setStreamCheck({ platform: result.platform, changed })
-      if (changed) onUpdate(movie.id, { platform: result.platform })
-    } catch {
-      setStreamCheck({ error: true, justwatch: `https://www.justwatch.com/us/search?q=${encodeURIComponent(movie.title)}` })
-    }
-  }
-
   return (
-    <div style={{ background: '#13131f', border: '1px solid #1e1e2e', borderRadius: 10, overflow: 'hidden', transition: 'border-color 0.2s' }}
-      onMouseEnter={e => e.currentTarget.style.borderColor = '#2e2e4e'}
-      onMouseLeave={e => e.currentTarget.style.borderColor = '#1e1e2e'}>
+    <div style={{ background: expanded ? '#3d3d58' : '#13131f', border: expanded ? '1px solid #5b21b6' : '1px solid #1e1e2e', borderRadius: 10, overflow: 'hidden', transition: 'all 0.2s', boxShadow: expanded ? '0 0 12px rgba(91, 33, 182, 0.25)' : 'none' }}
+      onMouseEnter={e => { if (!expanded) e.currentTarget.style.borderColor = '#2e2e4e' }}
+      onMouseLeave={e => { if (!expanded) e.currentTarget.style.borderColor = '#1e1e2e' }}>
       <div style={{ padding: '14px 16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12 }}
         onClick={() => !editing && setExpanded(!expanded)}>
         <div style={{ flex: 1 }}>
@@ -125,14 +124,33 @@ export default function MovieCard({ movie, onUpdate, onDelete }) {
               <div style={{ display: 'flex', gap: 16, marginBottom: 10, flexWrap: 'wrap', alignItems: 'center' }}>
                 <RTScore score={movie.rt_critics} label="Critics" />
                 <RTScore score={movie.rt_audience} label="Audience" />
-                <span style={{ marginLeft: 'auto', fontSize: 11 }}>
-                  {!streamCheck && <button onClick={checkStreaming} style={{ ...btnSecondary, fontSize: 11, padding: '3px 10px', color: '#7c3aed', borderColor: '#2a1a4a' }}>Check streaming</button>}
-                  {streamCheck === 'checking' && <span style={{ color: '#7c3aed', display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ animation: 'spin 1s linear infinite', display: 'inline-block' }}>◌</span> checking…</span>}
-                  {streamCheck?.changed && <span style={{ color: '#4ade80' }}>✓ Now on {streamCheck.platform}</span>}
-                  {streamCheck && !streamCheck.changed && !streamCheck.error && streamCheck !== 'checking' && <span style={{ color: '#555' }}>✓ confirmed</span>}
-                  {streamCheck?.error && <a href={streamCheck.justwatch} target="_blank" rel="noopener noreferrer" style={{ color: '#7c3aed', fontSize: 11, textDecoration: 'none' }}>Check JustWatch →</a>}
-                </span>
               </div>
+
+              {/* Streaming availability */}
+              {streamCheck && (
+                <div style={{ background: '#1a1a2e', border: '1px solid #2e2e4e', borderRadius: 8, padding: '10px 12px', marginBottom: 10 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#888', marginBottom: 6 }}>Availability on your services</div>
+                  {streamCheck.streaming?.length > 0 ? (
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      {streamCheck.streaming.map(s => (
+                        <span key={s} style={{ background: '#1a3a2a', color: '#4ade80', fontSize: 12, fontWeight: 600, padding: '4px 10px', borderRadius: 4 }}>✓ {s}</span>
+                      ))}
+                    </div>
+                  ) : (
+                    <div>
+                      <span style={{ color: '#facc15', fontSize: 12 }}>Not included with your subscriptions</span>
+                      {streamCheck.rent?.length > 0 && (
+                        <div style={{ marginTop: 4 }}>
+                          <span style={{ color: '#888', fontSize: 11 }}>Available on: </span>
+                          <span style={{ color: '#60a5fa', fontSize: 12 }}>{streamCheck.rent.join(', ')}</span>
+                        </div>
+                      )}
+                      <a href={`https://www.justwatch.com/us/search?q=${encodeURIComponent(movie.title)}`} target="_blank" rel="noopener noreferrer" style={{ color: '#7c3aed', fontSize: 11, textDecoration: 'none', marginTop: 6, display: 'inline-block' }}>Check JustWatch for options →</a>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {movie.synopsis && <p style={{ color: '#bbb', fontSize: 13, margin: '0 0 10px', lineHeight: 1.65 }}>{movie.synopsis}</p>}
               {movie.notes && <p style={{ color: '#777', fontSize: 12, margin: '0 0 10px', fontStyle: 'italic' }}>"{movie.notes}"</p>}
               <button onClick={() => setEditing(true)} style={btnSecondary}>Edit</button>
