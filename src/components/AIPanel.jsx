@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { supabase } from '../lib/supabase.js'
 
 const inputStyle = { background: '#0d0d1a', border: '1px solid #2e2e4e', borderRadius: 6, color: '#e8e8f0', padding: '7px 10px', fontSize: 13, outline: 'none', width: '100%', boxSizing: 'border-box' }
 const btnPrimary = { background: '#5b21b6', border: 'none', borderRadius: 6, color: '#fff', padding: '7px 14px', fontSize: 13, cursor: 'pointer', fontWeight: 600 }
@@ -15,31 +16,31 @@ export default function AIPanel({ movies }) {
     const liked = watched.filter(m => m.rating >= 4)
     const watchlist = movies.filter(m => m.status === 'watchlist')
     let ctx = 'Movie tracker:\n\n'
-    if (liked.length) ctx += `LOVED:\n${liked.map(m => `- ${m.title} (${m.year}) [${m.genre}]${m.notes ? ` — "${m.notes}"` : ''}`).join('\n')}\n\n`
+    if (liked.length) ctx += `LOVED:\n${liked.map(m => `- ${m.title} (${m.year}) [${m.genre}]${m.notes ? ` "${m.notes}"` : ''}`).join('\n')}\n\n`
     const midrated = watched.filter(m => m.rating === 3)
     if (midrated.length) ctx += `LIKED:\n${midrated.map(m => `- ${m.title}`).join('\n')}\n\n`
     if (watchlist.length) ctx += `WATCHLIST:\n${watchlist.map(m => `- ${m.title} (${m.year}) on ${m.platform}`).join('\n')}\n\n`
-    ctx += 'Services: Netflix, Hulu, Max, Disney+, Apple TV+. Likes: foreign films (subtitles), mystery, thriller, action, morally complex dramas. Will rent for exceptional films.'
+    ctx += 'Services: Netflix, Hulu, Max, Disney+, Apple TV+, Amazon Prime Video. Likes: foreign films (subtitles), mystery, thriller, action, morally complex dramas. Will rent for exceptional films.'
     return ctx
   }
 
   const prompts = {
     recommend: 'Recommend 5 films they haven\'t seen: title, year, why, where to stream, RT score.',
-    analyze: 'Analyze their taste profile concisely — patterns, directors, styles.',
+    analyze: 'Analyze their taste profile concisely. Patterns, directors, styles.',
     tonight: 'Pick ONE film from their watchlist for tonight. Make a compelling case.',
   }
 
   const ask = async (promptText) => {
     setLoading(true); setResponse('')
     try {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 1000,
-          messages: [{ role: 'user', content: `${buildContext()}\n\nRequest: ${promptText}` }] }),
+      const { data, error } = await supabase.functions.invoke('ai-advisor', {
+        body: { prompt: promptText, context: buildContext() }
       })
-      const data = await res.json()
-      setResponse(data.content?.find(b => b.type === 'text')?.text || 'No response.')
-    } catch { setResponse('Error connecting to AI. Please try again.') }
+      if (error) throw error
+      setResponse(data?.text || 'No response.')
+    } catch (err) {
+      setResponse('Error connecting to AI. Make sure the Edge Function is deployed and the API key is set.')
+    }
     setLoading(false)
   }
 
