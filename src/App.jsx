@@ -59,9 +59,6 @@ export default function App() {
     setLoading(false)
   }
 
-  if (authLoading) return <div style={{ minHeight: '100vh', background: '#08080f', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#555' }}>Loading...</div>
-  if (!session) return <Auth />
-
   const updateMovie = async (id, updates) => {
     const { error } = await supabase
       .from('movies')
@@ -106,6 +103,10 @@ export default function App() {
     }
     return { error: error?.message || null }
   }
+
+  // Early returns AFTER all function definitions
+  if (authLoading) return <div style={{ minHeight: '100vh', background: '#08080f', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#555' }}>Loading...</div>
+  if (!session) return <Auth />
 
   const statusOrder = { watchlist: 0, skipped: 1, watched: 2 }
   const filtered = movies
