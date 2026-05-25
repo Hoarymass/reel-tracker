@@ -60,12 +60,14 @@ export default function App() {
   }
 
   const updateMovie = async (id, updates) => {
-    const { error } = await supabase
+    const { data: updated, error } = await supabase
       .from('movies')
       .update(updates)
       .eq('id', id)
-    if (!error) {
-      setMovies(ms => ms.map(m => m.id === id ? { ...m, ...updates } : m))
+      .select()
+      .single()
+    if (!error && updated) {
+      setMovies(ms => ms.map(m => m.id === id ? { ...m, ...updated } : m))
     }
   }
 
