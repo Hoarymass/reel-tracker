@@ -45,9 +45,6 @@ export default function App() {
     setMovies([])
   }
 
-  if (authLoading) return <div style={{ minHeight: '100vh', background: '#08080f', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#555' }}>Loading...</div>
-  if (!session) return <Auth />
-
   const loadMovies = async () => {
     setLoading(true)
     const { data, error } = await supabase
@@ -61,6 +58,9 @@ export default function App() {
     }
     setLoading(false)
   }
+
+  if (authLoading) return <div style={{ minHeight: '100vh', background: '#08080f', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#555' }}>Loading...</div>
+  if (!session) return <Auth />
 
   const updateMovie = async (id, updates) => {
     const { error } = await supabase
@@ -83,6 +83,19 @@ export default function App() {
   }
 
   const addMovie = async (data) => {
+    // Check for duplicates (case-insensitive title + year match)
+    const duplicate = movies.find(m =>
+      m.title.toLowerCase() === data.title.toLowerCase() &&
+      (m.year === data.year || m.year === parseInt(data.year))
+    )
+    if (duplicate) {
+      let msg = `"${data.title}" (${data.year}) is already in your list.`
+      if (duplicate.status === 'watched' && duplicate.updated_at) {
+        const watchedDate = new Date(duplicate.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+        msg += ` Watched on ${watchedDate}.`
+      }
+      return { error: msg }
+    }
     const { data: inserted, error } = await supabase
       .from('movies')
       .insert([data])
@@ -91,6 +104,7 @@ export default function App() {
     if (!error && inserted) {
       setMovies(ms => [...ms, inserted])
     }
+    return { error: error?.message || null }
   }
 
   const statusOrder = { watchlist: 0, skipped: 1, watched: 2 }

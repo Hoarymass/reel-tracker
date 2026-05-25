@@ -74,6 +74,7 @@ export default function MovieCard({ movie, onUpdate, onDelete }) {
             <span style={{ color: '#444' }}>·</span>
             <span style={{ color: '#666', fontSize: 12 }}>{movie.runtime}</span>
             {movie.status === 'watched' && movie.rating && (<><span style={{ color: '#444' }}>·</span><StarRating value={movie.rating} readonly /></>)}
+            {movie.status === 'watched' && movie.updated_at && (<><span style={{ color: '#444' }}>·</span><span style={{ color: '#666', fontSize: 12 }}>{new Date(movie.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span></>)}
           </div>
         </div>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
